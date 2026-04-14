@@ -1,0 +1,12 @@
+langgraph>=0.2
+langchain-core>=0.2
+langchain-google-genai
+neo4j>=5.14
+sentence-transformers
+numpy
+pydantic>=2.6
+pydantic-settings
+structlog
+python-dotenv
+fastapi
+uvicorn[standard]
