@@ -10,3 +10,4 @@ structlog
 python-dotenv
 fastapi
 uvicorn[standard]
+streamlit>=1.35
