@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 from graph.builder import build_graph
+from graph.state import initial_state
 from models.user_profile import UserProfile
 
 SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), "nutrigraph_sessions.db")
@@ -280,6 +281,8 @@ def status_label(status: str) -> str:
         "ok": "✅ OK",
         "supplement_flagged": "⚠️ Supplement suggested",
         "supplement_required": "🔴 Supplement required",
+        "over_target": "🔴 Over target",
+        "under_target": "🔴 Under target",
     }
     return mapping.get(status, status)
 
@@ -523,15 +526,7 @@ if generate:
         for msg in status_msgs[:2]:
             status_slot.info(msg)
 
-        initial_state = {
-            "profile": profile,
-            "iteration": 0,
-            "used_meal_ids": {},
-            "all_issues": [],
-            "user_history": [],
-            "preference_memo": {},
-            "llm_reasoning": [],
-        }
+        state_input = initial_state(profile)
         config = {"configurable": {"thread_id": thread_id}}
 
         try:
@@ -539,7 +534,7 @@ if generate:
                 status_slot.info(status_msgs[2])
                 agent = build_graph(checkpointer=checkpointer)
                 status_slot.info(status_msgs[3])
-                final_state = agent.invoke(initial_state, config=config)
+                final_state = agent.invoke(state_input, config=config)
                 status_slot.info(status_msgs[4])
         except Exception as e:
             st.error(f"❌ Agent error: {e}")

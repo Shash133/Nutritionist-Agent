@@ -32,6 +32,7 @@ class MicroTargets(BaseModel):
     iron_min: float               # mg/day
     zinc_min: float               # mg/day
     phosphorus_max: Optional[int] = None  # mg/day — relevant for CKD
+    potassium_max: Optional[int] = None   # mg/day — relevant for CKD
     vitamin_d_min: int            # IU/day
     vitamin_b12_min: float        # mcg/day
     folate_min: int               # mcg DFE/day

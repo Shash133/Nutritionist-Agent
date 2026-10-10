@@ -80,20 +80,27 @@ class Neo4jClient:
         diet_type: str,
         avoid_conditions: list[str] | None = None,
         avoid_ids: list[str] | None = None,
+        exclude_terms: list[str] | None = None,
         limit: int = 30,
     ) -> list[Meal]:
         """
         Fetch meals suitable for a persona, filtering out those that should
         be avoided for specific medical conditions or already-used IDs.
+        `exclude_terms` (allergens, intolerances, dislikes) drop any meal whose
+        name or ingredients contain the term (case-insensitive substring).
         """
         avoid_conditions = avoid_conditions or []
         avoid_ids = avoid_ids or []
+        exclude_terms = [t.strip().lower() for t in (exclude_terms or []) if t.strip()]
 
         query = """
         MATCH (m:Meal)
         WHERE (m.diet_type = $diet_type OR $diet_type = 'any')
           AND NOT m.id IN $avoid_ids
           AND NONE(c IN $avoid_conditions WHERE c IN m.avoid_for)
+          AND NONE(t IN $exclude_terms WHERE
+                toLower(m.name) CONTAINS t
+                OR ANY(ing IN coalesce(m.ingredients, []) WHERE toLower(ing) CONTAINS t))
         RETURN m
         ORDER BY
           CASE WHEN $persona IN m.suitable_for THEN 0 ELSE 1 END,
@@ -106,6 +113,7 @@ class Neo4jClient:
             diet_type=diet_type,
             avoid_conditions=avoid_conditions,
             avoid_ids=avoid_ids,
+            exclude_terms=exclude_terms,
             limit=limit,
         )
 

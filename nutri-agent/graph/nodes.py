@@ -69,11 +69,11 @@ def generate_plan(state: AgentState) -> dict:
         else:
             plan.slots[slot_name] = []
 
+    # `iteration` counts replans only, so it is not incremented here.
     return {
         "plan": plan,
         "used_meal_ids": used_ids,
         "status": "plan_generated",
-        "iteration": state.get("iteration", 0) + 1
     }
 
 
@@ -131,11 +131,18 @@ def finalize(state: AgentState) -> dict:
     profile = state["profile"]
 
     def _status(actual, target, mode="min"):
-        """Return ok / supplement_required / over / under."""
+        """Compare actual to target: 'min' targets are floors, 'max' targets are caps."""
         if mode == "min":
             return "ok" if actual >= target * 0.9 else "supplement_required"
         elif mode == "max":
             return "ok" if actual <= target * 1.1 else "over_target"
+        return "ok"
+
+    def _calorie_status(actual, target, tol=0.08):
+        if actual < target * (1 - tol):
+            return "under_target"
+        if actual > target * (1 + tol):
+            return "over_target"
         return "ok"
 
     # Per-slot leucine minimums
@@ -148,9 +155,7 @@ def finalize(state: AgentState) -> dict:
         "calories": {
             "target": targets.macros.calories,
             "actual": round(plan.total_calories, 1),
-            "status": _status(plan.total_calories, targets.macros.calories * 0.92, "min")
-                      if plan.total_calories < targets.macros.calories else
-                      _status(targets.macros.calories * 1.08, plan.total_calories, "max"),
+            "status": _calorie_status(plan.total_calories, targets.macros.calories),
         },
         "protein": {
             "target": targets.macros.protein,
@@ -165,7 +170,7 @@ def finalize(state: AgentState) -> dict:
         "net_carbs": {
             "target": targets.macros.net_carbs,
             "actual": round(plan.total_net_carbs, 1),
-            "status": _status(targets.macros.net_carbs, plan.total_net_carbs, "max"),
+            "status": _status(plan.total_net_carbs, targets.macros.net_carbs, "max"),
         },
         "fiber": {
             "target": targets.macros.fiber,
@@ -182,7 +187,7 @@ def finalize(state: AgentState) -> dict:
         "sodium": {
             "max": targets.micros.sodium_max,
             "actual": round(plan.total_sodium, 1),
-            "status": _status(targets.micros.sodium_max, plan.total_sodium, "max"),
+            "status": _status(plan.total_sodium, targets.micros.sodium_max, "max"),
         },
         "iron": {
             "target": targets.micros.iron_min,
