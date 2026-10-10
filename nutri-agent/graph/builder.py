@@ -42,10 +42,8 @@ def build_graph(checkpointer=None):
         },
     )
     
-    g.add_conditional_edges(
-        "replan",
-        lambda s: "generate_plan",
-        {"generate_plan": "generate_plan"},
-    )
-    
+    # Re-evaluate the replanned plan directly; going back through generate_plan
+    # would rebuild from scratch and discard the swap.
+    g.add_edge("replan",               "evaluate_plan")
+
     return g.compile(checkpointer=checkpointer)

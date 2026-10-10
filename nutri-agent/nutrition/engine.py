@@ -35,13 +35,16 @@ PERSONA_MAP = {
 def calculate_bmr(profile: UserProfile) -> float:
     """
     Mifflin-St Jeor equation.
-    Males:   10 × weight(kg) + 6.25 × height(cm) − 5 × age − 161 + 166  → simplified
+    Males:   10 × weight(kg) + 6.25 × height(cm) − 5 × age + 5
     Females: 10 × weight(kg) + 6.25 × height(cm) − 5 × age − 161
+    Other:   midpoint of the two constants (−78); the equation has no neutral form.
     """
     base = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age
     if profile.gender == "male":
         return base + 5
-    return base - 161
+    if profile.gender == "female":
+        return base - 161
+    return base - 78
 
 
 def calculate_tdee(bmr: float, profile: UserProfile) -> float:

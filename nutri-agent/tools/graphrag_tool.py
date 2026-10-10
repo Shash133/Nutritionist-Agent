@@ -18,6 +18,7 @@ def fetch_suitable_meals_for_slot(
         diet_type=profile.diet_type,
         avoid_conditions=profile.medical_conditions,
         avoid_ids=avoid_ids,
+        exclude_terms=profile.allergies + profile.intolerances + profile.dislikes,
         limit=50
     )
     

@@ -43,7 +43,7 @@ class ReplanDecision(BaseModel):
 # ── LLM initialization ────────────────────────────────────────────────────────
 def _get_llm():
     return ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash",
+        model=settings.gemini_model,
         google_api_key=settings.google_api_key,
         temperature=0.2,
     ).with_structured_output(ReplanDecision)
@@ -66,6 +66,8 @@ def _build_plan_summary(plan: MealPlan) -> dict:
             "omega3":   round(sum(m.omega3 for m in meals), 2),
             "calcium":  round(sum(m.calcium for m in meals), 1),
             "iron":     round(sum(m.iron for m in meals), 2),
+            "potassium":  round(sum(m.potassium for m in meals), 1),
+            "phosphorus": round(sum(m.phosphorus for m in meals), 1),
         }
     return summary
 
@@ -87,6 +89,8 @@ def _build_candidate_summary(candidates: list[Meal]) -> list[dict]:
             "zinc":      m.zinc,
             "folate":    m.folate,
             "vitamin_d": m.vitamin_d,
+            "potassium": m.potassium,
+            "phosphorus": m.phosphorus,
             "cost":      m.cost,
             "tags":      m.tags,
         }
@@ -128,6 +132,8 @@ def _build_prompt(
 - Vitamin D (min): {targets.micros.vitamin_d_min} IU
 - Zinc (min): {targets.micros.zinc_min} mg
 - Folate (min): {targets.micros.folate_min} mcg
+- Potassium (max): {targets.micros.potassium_max or "no cap"} mg
+- Phosphorus (max): {targets.micros.phosphorus_max or "no cap"} mg
 
 ## CURRENT PLAN STATE (per slot)
 {json.dumps(plan_summary, indent=2)}
@@ -282,8 +288,8 @@ def _heuristic_fallback(
             if p.startswith("slot="):
                 target_slot = p.split("=")[1]
     else:
-        if top_issue == "high_sodium":
-            target_slot = _find_slot_with_max_metric(plan, "sodium")
+        if top_issue in ("high_sodium", "high_potassium", "high_phosphorus"):
+            target_slot = _find_slot_with_max_metric(plan, top_issue.removeprefix("high_"))
         elif top_issue == "low_protein":
             target_slot = _find_slot_with_min_metric(plan, "protein")
         elif top_issue == "over_budget":
@@ -338,8 +344,9 @@ def _find_slot_with_min_metric(plan: MealPlan, metric: str) -> str | None:
 def _sort_candidates_for_issue(candidates: list[Meal], issue: str) -> list[Meal]:
     if issue == "low_protein":
         return sorted(candidates, key=lambda m: m.protein, reverse=True)
-    if issue == "high_sodium":
-        return sorted(candidates, key=lambda m: m.sodium)
+    if issue in ("high_sodium", "high_potassium", "high_phosphorus"):
+        metric = issue.removeprefix("high_")
+        return sorted(candidates, key=lambda m: getattr(m, metric))
     if issue == "over_budget":
         return sorted(candidates, key=lambda m: m.cost)
     if issue == "low_leucine_per_meal":

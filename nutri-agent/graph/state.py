@@ -33,3 +33,15 @@ class AgentState(TypedDict):
     status: str
     final_output: Optional[dict]
     llm_reasoning: Annotated[List[str], operator.add]  # all LLM replan traces
+
+
+def initial_state(profile: UserProfile) -> dict:
+    """
+    Input for a new agent run. Memory keys (user_history, preference_memo) are
+    deliberately omitted so a resumed thread keeps its checkpointed values.
+    """
+    return {
+        "profile": profile,
+        "iteration": 0,
+        "used_meal_ids": {},
+    }

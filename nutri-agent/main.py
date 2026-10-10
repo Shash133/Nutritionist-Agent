@@ -5,6 +5,7 @@ import uuid
 import structlog
 from langgraph.checkpoint.sqlite import SqliteSaver
 from graph.builder import build_graph
+from graph.state import initial_state
 from models.user_profile import UserProfile
 
 log = structlog.get_logger()
@@ -60,20 +61,12 @@ def main(thread_id: str | None = None):
         thread_id = thread_id or str(uuid.uuid4())
         log.info("Session thread_id", thread_id=thread_id)
 
-        initial_state = {
-            "profile": profile,
-            "iteration": 0,
-            "used_meal_ids": {},
-            "all_issues": [],
-            "user_history": [],
-            "preference_memo": {},
-            "llm_reasoning": [],
-        }
+        state_input = initial_state(profile)
 
         config = {"configurable": {"thread_id": thread_id}}
 
         log.info("Running agent workflow...")
-        final_state = agent.invoke(initial_state, config=config)
+        final_state = agent.invoke(state_input, config=config)
         log.info("Workflow completed", status=final_state.get("status"))
 
         if "final_output" in final_state:

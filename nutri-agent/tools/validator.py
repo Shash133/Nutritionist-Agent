@@ -108,6 +108,8 @@ def evaluate(plan: MealPlan, targets: NutritionTargets,
     # CKD phosphorus and potassium caps
     if targets.micros.phosphorus_max and plan.total_phosphorus > targets.micros.phosphorus_max:
         issues.append(f"high_phosphorus:delta={plan.total_phosphorus - targets.micros.phosphorus_max:.0f}mg")
+    if targets.micros.potassium_max and plan.total_potassium > targets.micros.potassium_max:
+        issues.append(f"high_potassium:delta={plan.total_potassium - targets.micros.potassium_max:.0f}mg")
 
     # Budget
     if plan.total_cost > budget:

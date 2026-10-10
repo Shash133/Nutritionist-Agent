@@ -188,6 +188,8 @@ class PatientPersona(PersonaBase):
             )
         if "phosphorus_max" in overrides:
             base.micros.phosphorus_max = overrides["phosphorus_max"]
+        if "potassium_max" in overrides:
+            base.micros.potassium_max = overrides["potassium_max"]
         if "potassium_min" in overrides:
             base.micros.potassium_min = max(
                 base.micros.potassium_min, overrides["potassium_min"]

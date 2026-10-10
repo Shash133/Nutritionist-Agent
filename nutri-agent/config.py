@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     # ── LLM ──────────────────────────────────────────────────────────────────
     google_api_key: str = Field(default="")
+    gemini_model: str = Field(default="gemini-2.0-flash")
 
     # ── App ──────────────────────────────────────────────────────────────────
     log_level: str = Field(default="INFO")
