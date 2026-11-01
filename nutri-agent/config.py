@@ -1,6 +1,7 @@
 """Application configuration via pydantic-settings."""
 
 import sys
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
 from pydantic import AliasChoices, Field
@@ -32,7 +33,12 @@ class Settings(BaseSettings):
 
 
     # Ignore unrelated keys (e.g. AURA_INSTANCEID) pasted from Aura's env file
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+    # .env is resolved next to this file so the app works from any working directory
+    model_config = {
+        "env_file": Path(__file__).resolve().parent / ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 settings = Settings()
