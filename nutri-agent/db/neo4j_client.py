@@ -77,7 +77,7 @@ class Neo4jClient:
     def get_meals_for_persona(
         self,
         persona: str,
-        diet_type: str,
+        diet_types: list[str],
         avoid_conditions: list[str] | None = None,
         avoid_ids: list[str] | None = None,
         exclude_terms: list[str] | None = None,
@@ -95,7 +95,7 @@ class Neo4jClient:
 
         query = """
         MATCH (m:Meal)
-        WHERE (m.diet_type = $diet_type OR $diet_type = 'any')
+        WHERE m.diet_type IN $diet_types
           AND NOT m.id IN $avoid_ids
           AND NONE(c IN $avoid_conditions WHERE c IN m.avoid_for)
           AND NONE(t IN $exclude_terms WHERE
@@ -110,7 +110,7 @@ class Neo4jClient:
         return self._run_meal_query(
             query,
             persona=persona,
-            diet_type=diet_type,
+            diet_types=diet_types,
             avoid_conditions=avoid_conditions,
             avoid_ids=avoid_ids,
             exclude_terms=exclude_terms,

@@ -1,5 +1,7 @@
 """All action nodes for the langgraph standard workflow."""
 
+import random
+
 import structlog
 from graph.state import AgentState
 from nutrition.engine import get_nutrition_targets
@@ -8,8 +10,26 @@ from tools.graphrag_tool import fetch_suitable_meals_for_slot
 from tools.validator import evaluate
 from tools.replanner import replan_from_issues
 from models.meal_plan import MealPlan
+from models.meal import Meal
 
 log = structlog.get_logger()
+
+# How many of the best-ranked dishes a slot picks from at random. Always taking
+# the top one gives the identical plan on every run; the evaluate/replan loop
+# corrects any nutrition gaps the random pick introduces.
+TOP_DISHES_PER_SLOT = 3
+_rng = random.Random()
+
+
+def _pick_among_top_dishes(candidates: list[Meal]) -> Meal:
+    """Random variant of a random dish among the first TOP_DISHES_PER_SLOT dishes."""
+    families: list[str] = []
+    for m in candidates:
+        if m.family not in families:
+            families.append(m.family)
+    family = _rng.choice(families[:TOP_DISHES_PER_SLOT])
+    return _rng.choice([m for m in candidates if m.family == family])
+
 
 def detect_persona(state: AgentState) -> dict:
     """Resolves persona and medical conditions, populates persona_config."""
@@ -53,6 +73,7 @@ def generate_plan(state: AgentState) -> dict:
     plan = MealPlan(slots={})
     used_ids = {k: list(v) for k, v in state.get("used_meal_ids", {}).items()}
     chosen_in_plan = []  # track all meals picked so far to prevent intraday dupes
+    chosen_families = set()  # same dish under a different variant name counts as a repeat
 
     for slot_name in state["timing_windows"].keys():
         already_used = used_ids.get(slot_name, [])
@@ -61,9 +82,14 @@ def generate_plan(state: AgentState) -> dict:
             slot_name, state["profile"], avoid_ids=avoid_combo
         )
         if candidates:
-            meal = candidates[0]
+            # Prefer a dish not already in the plan; repeat only if nothing else fits.
+            varied = [m for m in candidates if m.family not in chosen_families] or candidates
+            # Prefer dishes made for this slot (no beef stir-fry for breakfast).
+            exact = [m for m in varied if m.meal_slot in (slot_name, "any")]
+            meal = _pick_among_top_dishes(exact or varied)
             plan.slots[slot_name] = [meal]
             chosen_in_plan.append(meal.id)
+            chosen_families.add(meal.family)
             # DONT add to already_used yet, already_used is specifically for rejected meals
             # used_ids[slot_name] = already_used  <-- Keep it as is
         else:

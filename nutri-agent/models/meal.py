@@ -1,5 +1,7 @@
 """Meal schema with full 25+ nutrient panel."""
 
+import re
+
 from pydantic import BaseModel, Field
 
 
@@ -49,6 +51,15 @@ class Meal(BaseModel):
     tags: list[str] = []          # e.g. ["high-protein", "low-gi", "post-workout"]
     suitable_for: list[str] = []  # e.g. ["diabetes", "ckd", "bulking"]
     avoid_for: list[str] = []     # e.g. ["gout", "hypertension"]
+
+    @property
+    def family(self) -> str:
+        """
+        Base recipe this meal is a variant of. Seeded variants share a recipe and
+        differ only by name suffix ('iron-1', 'iron-2' -> 'iron-'), so plans use
+        this, not the id, to avoid serving the same dish twice.
+        """
+        return re.sub(r"\d+$", "", self.id) or self.id
 
     @classmethod
     def from_neo4j(cls, record: dict) -> "Meal":

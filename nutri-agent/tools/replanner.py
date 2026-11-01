@@ -174,6 +174,8 @@ Only choose a `selected_meal_id` from the IDs listed here. These are the ONLY va
    - Directly address as many listed issues as possible.
    - Respect the persona's medical conditions and diet type.
    - Not introduce new critical issues.
+   - Keep the day varied: do not pick a dish already served in another slot
+     (names that differ only after "with ..." are the same dish).
    - Have an ID that appears in the AVAILABLE REPLACEMENT MEALS section.
 4. Return a structured ReplanDecision with your reasoning, the target_slot, and the selected_meal_id.
 
@@ -217,9 +219,12 @@ def replan_from_issues(
     candidates_by_slot: dict[str, list[Meal]] = {}
     for slot in new_plan.slots.keys():
         avoid = list(set(new_used_ids.get(slot, []) + current_plan_ids))
-        candidates_by_slot[slot] = fetch_suitable_meals_for_slot(
-            slot, profile, avoid_ids=avoid
-        )
+        candidates = fetch_suitable_meals_for_slot(slot, profile, avoid_ids=avoid)
+        # Drop variants of dishes already served in other slots, unless that
+        # would leave the slot with no options at all.
+        other_families = _families_outside(new_plan, slot)
+        varied = [m for m in candidates if m.family not in other_families]
+        candidates_by_slot[slot] = varied or candidates
 
     candidates_summary = {
         slot: _build_candidate_summary(meals)
@@ -261,6 +266,14 @@ def replan_from_issues(
         if not chosen_meal:
             log.warning("llm_replan.invalid_meal_id", meal_id=chosen_id, slot=target_slot,
                         available_ids=list(all_candidates_map.keys())[:10])
+            return _heuristic_fallback(sorted_issues, new_plan, profile, new_used_ids, candidates_by_slot)
+
+        # The LLM may pick from another slot's list; make sure it isn't a dish
+        # already served elsewhere in the plan.
+        varied_ids = {m.id for m in candidates_by_slot.get(target_slot, [])}
+        if (chosen_meal.family in _families_outside(new_plan, target_slot)
+                and chosen_meal.id not in varied_ids):
+            log.warning("llm_replan.repeated_dish", meal_id=chosen_id, slot=target_slot)
             return _heuristic_fallback(sorted_issues, new_plan, profile, new_used_ids, candidates_by_slot)
 
         # Apply the swap
@@ -343,6 +356,11 @@ def _heuristic_fallback(
 
 
 # ── Utility functions ────────────────────────────────────────────────────────
+def _families_outside(plan: MealPlan, slot: str) -> set[str]:
+    """Dish families used in every slot except `slot`."""
+    return {m.family for s, meals in plan.slots.items() if s != slot for m in meals}
+
+
 def _find_slot_with_max_metric(plan: MealPlan, metric: str) -> str | None:
     best_slot, max_val = None, -1
     for slot, meals in plan.slots.items():
