@@ -13,6 +13,10 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from graph.builder import build_graph
 from graph.state import initial_state
 from models.user_profile import UserProfile
+from config import configure_utf8_stdio
+
+configure_utf8_stdio()
+
 
 SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), "nutrigraph_sessions.db")
 
