@@ -1,8 +1,10 @@
 """Advanced Replanner — LLM-powered meal swap decisions using Google Gemini."""
 
 import json
+from functools import lru_cache
 import structlog
 from pydantic import BaseModel, Field
+from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_google_genai import ChatGoogleGenerativeAI
 from models.meal_plan import MealPlan, NutritionTargets
 from models.user_profile import UserProfile
@@ -41,12 +43,29 @@ class ReplanDecision(BaseModel):
     ))
 
 # ── LLM initialization ────────────────────────────────────────────────────────
+@lru_cache(maxsize=1)
 def _get_llm():
+    """
+    Built once per process so the rate limiter's budget is shared by every
+    replan call (including concurrent API / Streamlit requests).
+    """
+    rate_limiter = InMemoryRateLimiter(
+        requests_per_second=settings.gemini_rpm / 60,
+        check_every_n_seconds=0.5,
+        max_bucket_size=1,   # no bursts — space calls evenly
+    )
     return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
         google_api_key=settings.google_api_key,
         temperature=0.2,
+        max_retries=settings.gemini_max_retries,
+        rate_limiter=rate_limiter,
     ).with_structured_output(ReplanDecision)
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    msg = str(exc)
+    return "429" in msg or "RESOURCE_EXHAUSTED" in msg
 
 
 def _build_plan_summary(plan: MealPlan) -> dict:
@@ -263,7 +282,12 @@ def replan_from_issues(
         return new_plan, new_used_ids, action
 
     except Exception as exc:
-        log.error("llm_replan.error", error=str(exc))
+        if _is_rate_limit_error(exc):
+            # Retries are exhausted at this point — likely a daily quota.
+            log.warning("llm_replan.rate_limited", model=settings.gemini_model,
+                        max_retries=settings.gemini_max_retries, error=str(exc)[:300])
+        else:
+            log.error("llm_replan.error", error=str(exc))
         return _heuristic_fallback(sorted_issues, new_plan, profile, new_used_ids, candidates_by_slot)
 
 

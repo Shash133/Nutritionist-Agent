@@ -7,6 +7,10 @@ import structlog
 from graph.builder import build_graph
 from graph.state import initial_state
 from models.user_profile import UserProfile
+from config import configure_utf8_stdio
+
+configure_utf8_stdio()
+
 
 log = structlog.get_logger()
 app = FastAPI(title="NutriGraph Advanced AI Agent API")
