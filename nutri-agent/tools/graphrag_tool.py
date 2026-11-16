@@ -37,7 +37,7 @@ def fetch_suitable_meals_for_slot(
         avoid_conditions=profile.medical_conditions,
         avoid_ids=avoid_ids,
         exclude_terms=profile.allergies + profile.intolerances + profile.dislikes,
-        limit=200,  # whole catalogue is small; variants are capped below
+        limit=2000,  # return the whole catalogue (~200 meals); variants are capped below
     )
     
     # Variants of one recipe would otherwise fill the pool and crowd out other dishes.
