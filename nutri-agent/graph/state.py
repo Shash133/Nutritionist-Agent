@@ -25,6 +25,14 @@ class AgentState(TypedDict):
     used_meal_ids: dict[str, list[str]]
     all_issues: Annotated[list[str], operator.add]
     
+    # Agent loop (agentic mode)
+    messages: list                     # LLM conversation; replaced, not appended, per update
+    agent_steps: int                   # LLM turns taken this run
+    agent_done: bool                   # agent called finalize_plan
+    agent_summary: str                 # agent's closing explanation for the user
+    planner: str                       # "agent" or "pipeline": which path built the final plan
+    llm_failed: bool                   # LLM unreachable: fall back to the pipeline, no LLM replans
+
     # Memory (persisted via SqliteSaver)
     user_history: list[dict]
     preference_memo: dict
@@ -44,4 +52,14 @@ def initial_state(profile: UserProfile) -> dict:
         "profile": profile,
         "iteration": 0,
         "used_meal_ids": {},
+        "plan": None,
+        "evaluation": None,
+        "targets": None,
+        "timing_windows": {},
+        "candidate_meals": [],
+        "messages": [],
+        "agent_steps": 0,
+        "agent_done": False,
+        "agent_summary": "",
+        "llm_failed": False,
     }

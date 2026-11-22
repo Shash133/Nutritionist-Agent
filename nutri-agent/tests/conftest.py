@@ -41,3 +41,10 @@ def make_profile():
         data.update(overrides)
         return UserProfile(**data)
     return _make
+
+
+@pytest.fixture(autouse=True)
+def pipeline_mode_by_default(monkeypatch):
+    """Tests run the deterministic pipeline unless they opt into agentic mode."""
+    from config import settings
+    monkeypatch.setattr(settings, "agentic", False)

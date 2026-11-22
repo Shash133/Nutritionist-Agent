@@ -22,6 +22,33 @@ def compatible_diet_types(diet_type: str) -> list[str]:
     return COMPATIBLE_DIET_TYPES.get(diet_type, [diet_type])
 
 
+def fetch_safe_meal_pool(profile: UserProfile, avoid_ids: list[str] | None = None) -> list[Meal]:
+    """
+    Every catalogue meal this profile may eat: diet-compatible, not flagged for
+    any of their medical conditions, and free of allergens, intolerances and
+    dislikes. All agent meal choices are restricted to this pool.
+    """
+    return neo4j_client.get_meals_for_persona(
+        persona=profile.persona,
+        diet_types=compatible_diet_types(profile.diet_type),
+        avoid_conditions=profile.medical_conditions,
+        avoid_ids=avoid_ids,
+        exclude_terms=profile.allergies + profile.intolerances + profile.dislikes,
+        limit=2000,  # return the whole catalogue (~200 meals)
+    )
+
+
+def slot_fit(meal: Meal, slot: str) -> int:
+    """0 = made for this slot, 1 = compatible slot, 2 = anything else."""
+    if meal.meal_slot == slot or meal.meal_slot == "any":
+        return 0
+    if slot in ["pre_workout", "mid_morning", "afternoon_snack"] and "snack" in meal.meal_slot:
+        return 1
+    if slot in ["breakfast", "lunch", "dinner"] and meal.meal_slot in ["breakfast", "lunch", "dinner"]:
+        return 1
+    return 2
+
+
 def fetch_suitable_meals_for_slot(
     slot: str, profile: UserProfile, avoid_ids: list[str] | None = None
 ) -> list[Meal]:
@@ -30,33 +57,14 @@ def fetch_suitable_meals_for_slot(
     rather than a full semantic embedding model for simplicity, but easily
     replaceable with sentence-transformers + vector index in a real setup.
     """
-    # Fetch generally suitable meals for the persona
-    meals = neo4j_client.get_meals_for_persona(
-        persona=profile.persona,
-        diet_types=compatible_diet_types(profile.diet_type),
-        avoid_conditions=profile.medical_conditions,
-        avoid_ids=avoid_ids,
-        exclude_terms=profile.allergies + profile.intolerances + profile.dislikes,
-        limit=2000,  # return the whole catalogue (~200 meals); variants are capped below
-    )
-    
+    meals = fetch_safe_meal_pool(profile, avoid_ids)
+
     # Variants of one recipe would otherwise fill the pool and crowd out other dishes.
     meals = _cap_variants(meals, MAX_VARIANTS_PER_DISH)
 
-    # Rank by slot fit (in real life, we might do semantic search here):
-    # exact slot first, then compatible slots, then everything else as a last resort.
-    exact, compatible, other = [], [], []
-    for meal in meals:
-        if meal.meal_slot == slot or meal.meal_slot == 'any':
-            exact.append(meal)
-        elif slot in ["pre_workout", "mid_morning", "afternoon_snack"] and "snack" in meal.meal_slot:
-            compatible.append(meal)
-        elif slot in ["breakfast", "lunch", "dinner"] and meal.meal_slot in ["breakfast", "lunch", "dinner"]:
-            compatible.append(meal)
-        else:
-            other.append(meal)
-
-    return (exact + compatible + other)[:20]
+    # Rank by slot fit: exact slot first, then compatible slots, then everything
+    # else as a last resort. sorted() is stable, so Neo4j's order is kept within a tier.
+    return sorted(meals, key=lambda m: slot_fit(m, slot))[:20]
 
 
 def _cap_variants(meals: list[Meal], max_per_dish: int) -> list[Meal]:

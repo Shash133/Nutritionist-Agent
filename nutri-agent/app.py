@@ -567,12 +567,16 @@ if "last_output" in st.session_state:
         <div>
             <div style="font-size:1.4rem;font-weight:700;color:#E8EDF5;">Your Personalised Plan</div>
             <div style="font-size:0.78rem;color:#4A5568;">Session: <code style="color:#00D084;">{thread_id[:18]}…</code>
-            &nbsp;|&nbsp; Iterations: <b>{output.get("iterations_used", "—")}</b>
+            &nbsp;|&nbsp; Planner: <b>{"🤖 Agent" if output.get("planner") == "agent" else "⚙️ Pipeline"}</b>
+            &nbsp;|&nbsp; {"Agent turns" if output.get("planner") == "agent" else "Iterations"}: <b>{output.get("agent_steps") if output.get("planner") == "agent" else output.get("iterations_used", "—")}</b>
             &nbsp;|&nbsp; Status: <span class="{status_cls(output.get('status',''))}">
             {"✅ Valid" if output.get("status") == "valid" else "⚠️ " + str(output.get("status","")).replace("_", " ").title()}</span></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    if output.get("agent_summary"):
+        st.info(f"🤖 {output['agent_summary']}")
 
     tab1, tab2, tab3, tab4 = st.tabs(["🍽️ Meal Plan", "📊 Nutrition", "💊 Supplements & Notes", "{}  Raw JSON"])
 
@@ -735,7 +739,7 @@ if "last_output" in st.session_state:
                 st.info("No medical notes.")
 
         if traces:
-            st.markdown('<div class="section-header">🤖 AI Replanning Traces</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-header">🤖 Agent Trace</div>', unsafe_allow_html=True)
             for t in traces:
                 st.markdown(f"""
                 <div style="background:rgba(0,168,255,0.06);border:1px solid rgba(0,168,255,0.15);

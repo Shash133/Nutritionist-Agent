@@ -42,7 +42,8 @@ def detect_persona(state: AgentState) -> dict:
         "workout_time": profile.workout_time,
         "has_workout": profile.workout_time != "none",
     }
-    return {"persona_config": persona_config, "status": "detecting_persona"}
+    return {"persona_config": persona_config, "planner": "pipeline",
+            "status": "detecting_persona"}
 
 
 def compute_targets(state: AgentState) -> dict:
@@ -130,7 +131,8 @@ def replan(state: AgentState) -> dict:
         state["targets"],
         state["profile"].budget_per_day,
         state["profile"],
-        state["used_meal_ids"]
+        state["used_meal_ids"],
+        use_llm=not state.get("llm_failed", False),
     )
     log.info("node.replan.done", action=action)
     return {
@@ -268,6 +270,9 @@ def finalize(state: AgentState) -> dict:
         "iterations_used": state["iteration"],
         "all_issues_encountered": state["all_issues"],
         "llm_replan_traces": state.get("llm_reasoning", []),
+        "planner": state.get("planner", "pipeline"),
+        "agent_steps": state.get("agent_steps", 0),
+        "agent_summary": state.get("agent_summary", ""),
     }
 
     # Append plan summary to user_history for memory-aware replanning
