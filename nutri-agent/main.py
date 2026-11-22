@@ -72,6 +72,10 @@ def main(thread_id: str | None = None):
         log.info("Workflow completed", status=final_state.get("status"))
 
         if "final_output" in final_state:
+            out = final_state["final_output"]
+            print(f"\nPlanner: {out['planner']}  (agent turns: {out['agent_steps']})")
+            if out.get("agent_summary"):
+                print(f"Agent summary: {out['agent_summary']}")
             output_json = json.dumps(final_state["final_output"], indent=2)
             print("\n=== FINAL OUTPUT ===\n")
             print(output_json)

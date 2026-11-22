@@ -17,7 +17,7 @@ def test_replan_result_reaches_finalize(monkeypatch, make_profile, make_meal):
     monkeypatch.setattr(nodes, "fetch_suitable_meals_for_slot",
                         lambda slot, profile, avoid_ids=None: [initial_meal])
 
-    def fake_replan(issues, plan, targets, budget, profile, used_meal_ids):
+    def fake_replan(issues, plan, targets, budget, profile, used_meal_ids, use_llm=True):
         replan_calls.append(1)
         new_plan = MealPlan(slots={k: [replanned_meal] for k in plan.slots})
         return new_plan, used_meal_ids, "swapped"

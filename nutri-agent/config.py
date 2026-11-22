@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # ── LLM ──────────────────────────────────────────────────────────────────
     google_api_key: str = Field(default="")
-    gemini_model: str = Field(default="gemini-3.8-flash")
+    gemini_model: str = Field(default="gemini-3.6-flash")
     # Client-side throttle, shared across all replan calls in the process.
     # Set to your API tier's requests-per-minute limit.
     gemini_rpm: float = Field(default=10, gt=0)
@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # ── App ──────────────────────────────────────────────────────────────────
     log_level: str = Field(default="INFO")
     max_replan_iterations: int = Field(default=3)
+    # Agentic mode: Gemini drives planning by calling tools. Off (or no API key)
+    # runs the fixed pipeline: generate -> evaluate -> replan.
+    agentic: bool = Field(default=True)
+    # Max LLM turns the agent gets before its plan is finalized as-is.
+    max_agent_steps: int = Field(default=25, ge=1)
     embedding_model: str = Field(default="all-MiniLM-L6-v2")
 
 
